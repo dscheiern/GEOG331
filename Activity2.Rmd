@@ -241,7 +241,7 @@ averageprcp
 Annual precipitation and mean annual temperatures for each site don't seem to correlate much. The two sites with the highest temperatures have the lowest preciptitation. The site with by far the most precipitation is the median with regards to temperature.
 
 ### Question 10: What is the github link to your script for this activity?
-
+https://github.com/dscheiern/GEOG331/blob/master/Activity2.Rmd
 
 
 

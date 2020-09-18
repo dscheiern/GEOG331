@@ -1,0 +1,247 @@
+---
+title: "Activity 2"
+author: "Delaney Scheiern"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Weather data
+Below, I load in weather data from my data folder.
+```{r}
+datW <- read.csv("data\\noaa_weather\\2011124.csv", stringsAsFactors = T)
+```
+
+Next, I get more information about the dataframe.
+```{r}
+str(datW)
+```
+### Question 1: How many rows and columns are in this dataset?
+***There are 157849 rows and 9 columns in this dataset***
+
+Then, I change the date format and added a numeric year column.
+```{r}
+datW$dateF <- as.Date(datW$DATE, "%Y-%m-%d")
+datW$year <- as.numeric(format(datW$dateF,"%Y"))
+```
+
+### Question 2: Using your textbook or online R resources, describe the difference between character, numeric, integer, and factor data. Create an example vector of each data type with five objects in it.
+* Character: any character or word (string of characters) input
+* Numeric: any real number (integer or double)
+* Integer: a whole number (integer), a subclass of numeric
+* Factor: data stored as integers with associated character labels
+Below are examples of each:
+```{r}
+c("hi", "hello", "sldk", "wekk", "osid") #character
+c(3.45, 2.75, 54.2, 12, 43,6) #numeric
+c(2L, 5L, 5L, 7L, 1L) #integer
+as.factor(c("no","maybe","probably","sure","yes")) #factor
+```
+
+## Descriptive Statistics and Histograms
+
+First, I find all the unique site names.
+```{r}
+unique(datW$NAME)
+```
+
+Then, I get the average daily temperature and find the mean for each location.
+```{r}
+datW$TAVE <- datW$TMIN + ((datW$TMAX-datW$TMIN)/2)
+averageTemp <- aggregate(datW$TAVE, by=list(datW$NAME), FUN="mean", na.rm=TRUE)
+colnames(averageTemp) <- c("NAME","MAAT")
+averageTemp
+```
+Then, make the sites numeric for referencing purposes.
+```{r}
+datW$siteN <- as.numeric(datW$NAME)
+```
+
+Then, I make a histogram of the first site.
+```{r}
+hist(datW$TAVE[datW$siteN == 1],
+        freq=FALSE, 
+        main = paste(levels(datW$NAME)[1]),
+        xlab = "Average daily temperature (degrees C)", 
+        ylab="Relative frequency",
+        col="grey50",
+        border="white")
+```
+
+### Question 3: Using help(hist) and help(paste) look up all of the arguments in my hist function above. Describe what each argument is doing in the hist function above.
+* 'datW\$TAVE[datW\$siteN == 1]' -- This provides the average daily temperatures for the first location for the histogram
+* 'freq = FALSE' -- This plots probability densities (y-axis) instead of counts
+* 'main = paste(levels(datW$NAME)[1])' -- This is the main title, and adds the location name to "Histogram of"
+* 'xlab = "Average daily temperature (degrees C)", ylab="Relative frequency" ' -- These arguments set the x and y axis titles
+* 'col="grey50"' -- Describes the color of the bars
+* 'border="white"' -- Describes the outline color of the bars
+
+Then, I add lines to represent the mean and standard deviation.
+```{r}
+hist(datW$TAVE[datW$siteN == 1],
+        freq=FALSE, 
+        main = paste(levels(datW$NAME)[1]),
+        xlab = "Average daily temperature (degrees C)", 
+        ylab="Relative frequency",
+        col="grey50",
+        border="white")
+abline(v = mean(datW$TAVE[datW$siteN == 1], na.rm=TRUE), col = "tomato3", lwd = 3)
+
+abline(v = mean(datW$TAVE[datW$siteN == 1], na.rm=TRUE) - sd(datW$TAVE[datW$siteN == 1], na.rm=TRUE), col="tomato3", lty=3, lwd=3)
+
+abline(v = mean(datW$TAVE[datW$siteN == 1],na.rm=TRUE) + sd(datW$TAVE[datW$siteN == 1],na.rm=TRUE), col = "tomato3", lty = 3, lwd = 3)
+```  
+
+### Question 4: Make histograms for at least three other sites' daily average temperature.
+```{r}
+# split display
+par(mfrow=c(2,2))
+
+## histogram for 2nd location
+hist(datW$TAVE[datW$siteN == 2],
+        freq=FALSE, 
+        main = paste(levels(datW$NAME)[2]),
+        xlab = "Average daily temperature (degrees C)", 
+        ylab="Relative frequency",
+        col="deepskyblue",
+        border="white")
+abline(v = mean(datW$TAVE[datW$siteN == 2], na.rm=TRUE), col = "tomato3", lwd = 3)
+
+abline(v = mean(datW$TAVE[datW$siteN == 2], na.rm=TRUE) - sd(datW$TAVE[datW$siteN == 2], na.rm=TRUE), col="tomato3", lty=3, lwd=3)
+
+abline(v = mean(datW$TAVE[datW$siteN == 2],na.rm=TRUE) + sd(datW$TAVE[datW$siteN == 2],na.rm=TRUE), col = "tomato3", lty = 3, lwd = 3)
+
+## histogram for 3rd location
+hist(datW$TAVE[datW$siteN == 3],
+        freq=FALSE, 
+        main = paste(levels(datW$NAME)[3]),
+        xlab = "Average daily temperature (degrees C)", 
+        ylab="Relative frequency",
+        col="darkorange",
+        border="white")
+abline(v = mean(datW$TAVE[datW$siteN == 3], na.rm=TRUE), col = "tomato3", lwd = 3)
+
+abline(v = mean(datW$TAVE[datW$siteN == 3], na.rm=TRUE) - sd(datW$TAVE[datW$siteN == 3], na.rm=TRUE), col="tomato3", lty=3, lwd=3)
+
+abline(v = mean(datW$TAVE[datW$siteN == 3],na.rm=TRUE) + sd(datW$TAVE[datW$siteN == 3],na.rm=TRUE), col = "tomato3", lty = 3, lwd = 3)
+
+## histogram for 4th location
+hist(datW$TAVE[datW$siteN == 4],
+        freq=FALSE, 
+        main = paste(levels(datW$NAME)[4]),
+        xlab = "Average daily temperature (degrees C)", 
+        ylab="Relative frequency",
+        col="darkorchid",
+        border="white")
+abline(v = mean(datW$TAVE[datW$siteN == 4], na.rm=TRUE), col = "tomato3", lwd = 3)
+
+abline(v = mean(datW$TAVE[datW$siteN == 4], na.rm=TRUE) - sd(datW$TAVE[datW$siteN == 4], na.rm=TRUE), col="tomato3", lty=3, lwd=3)
+
+abline(v = mean(datW$TAVE[datW$siteN == 4],na.rm=TRUE) + sd(datW$TAVE[datW$siteN == 4],na.rm=TRUE), col = "tomato3", lty = 3, lwd = 3)
+
+## histogram for 5th location
+hist(datW$TAVE[datW$siteN == 5],
+        freq=FALSE, 
+        main = paste(levels(datW$NAME)[5]),
+        xlab = "Average daily temperature (degrees C)", 
+        ylab="Relative frequency",
+        col="forestgreen",
+        border="white")
+abline(v = mean(datW$TAVE[datW$siteN == 5], na.rm=TRUE), col = "tomato3", lwd = 3)
+
+abline(v = mean(datW$TAVE[datW$siteN == 5], na.rm=TRUE) - sd(datW$TAVE[datW$siteN == 5], na.rm=TRUE), col="tomato3", lty=3, lwd=3)
+
+abline(v = mean(datW$TAVE[datW$siteN == 5],na.rm=TRUE) + sd(datW$TAVE[datW$siteN == 5],na.rm=TRUE), col = "tomato3", lty = 3, lwd = 3)
+
+```  
+
+## Probability Distributions
+### Question 5: Refer to the histograms that you made in question 4. Does daily average air temperature look like it is normally distributed at all sites?
+***No, daily average air temperature is not normally distributed at all sites. At site 4, the mean of the distribution does not have the highest density, and instead there are two bumps about one standard deviation away. Both site 3 and 5 have distributions that are skewed left, so there is a higher probability density for higher temperatures.***  
+
+Next, I calculate the probability of below freezing temperatures at the first site.
+```{r}
+pnorm(0,
+      mean(datW$TAVE[datW$siteN == 1],na.rm=TRUE),
+      sd(datW$TAVE[datW$siteN == 1],na.rm=TRUE))
+```
+I can find the probability of temperatures between 0 and 5 at the first site with the following:
+```{r}
+pnorm(5,
+      mean(datW$TAVE[datW$siteN == 1],na.rm=TRUE),
+      sd(datW$TAVE[datW$siteN == 1],na.rm=TRUE))- pnorm(0,
+      mean(datW$TAVE[datW$siteN == 1],na.rm=TRUE),
+      sd(datW$TAVE[datW$siteN == 1],na.rm=TRUE))
+```  
+And I can get the probability above a temperature over the value 20 with the following:
+```{r}
+1 - pnorm(20,
+      mean(datW$TAVE[datW$siteN == 1],na.rm=TRUE),
+      sd(datW$TAVE[datW$siteN == 1],na.rm=TRUE))
+```  
+And I can get the temperature for a specific quantile with the following:
+```{r}
+qnorm(0.95,
+      mean(datW$TAVE[datW$siteN == 1],na.rm=TRUE),
+      sd(datW$TAVE[datW$siteN == 1],na.rm=TRUE))
+```  
+
+### Question 6: Assume climate change increases the mean temperature by 4 degrees C in Aberdeen, but the standard deviation stays the same as the current climate. How often do you expect to observe temperatures greater than the current threshold for extreme high temperatures (above 95% percentile).
+
+```{r}
+1 - pnorm(18.51,
+      mean(datW$TAVE[datW$siteN == 1]+4,na.rm=TRUE),
+      sd(datW$TAVE[datW$siteN == 1],na.rm=TRUE))
+```
+I would expect to observe extreme high temperatures over 18.51 degrees 20.32% of the time, which is a very large increase from 5%.  
+
+## Patterns in Precipitation Data
+
+### Question 7: Make a histogram of daily precipitation for Aberdeen. Would an exponenital, beta, or gamma distribution describe the shape of the daily precipitation data?
+```{r}
+#datW$PAVE <- datW$PRCP + ((datW$TMAX-datW$TMIN)/2)
+hist(datW$PRCP[datW$siteN == 1],
+        freq=FALSE, 
+        main = paste(levels(datW$NAME)[1]),
+        xlab = "Average daily precipitation", 
+        ylab="Relative frequency",
+        col="grey50",
+        border="white",
+        breaks=10)
+```  
+
+This daily precipitation data can be described with an exponential distribution.
+
+### Question 8: Use the sum function to get precipitation for each year and site in the data. Choose one site and make a histogram of annual precipitation. Describe the general shape of the data and whether you think it is normally distributed.
+```{r}
+# group by year and name, then sum
+year_prcp <- aggregate(datW$PRCP, by=list(datW$year, datW$siteN), FUN="sum", na.rm=TRUE)
+
+# histogram of annual precipitation at site 3
+hist(year_prcp$x[year_prcp$Group.2 == 3],
+        freq=FALSE, 
+        main = "Annual Precipitation at Mandan Experiment Station",
+        xlab = "Annual Precipitation", 
+        ylab = "Relative frequency",
+        col = "grey50",
+        border = "white",
+        breaks = 10)
+```  
+
+This data appears to be normally distributed.
+
+### Question 9: Get the mean of the annual precipitation for all sites. Compare to the mean annual temperatures you calculated earlier. In general terms, describe how the climate varies between sites
+```{r}
+averageprcp <- aggregate(year_prcp, by=list(year_prcp$Group.2), FUN="mean", na.rm=TRUE)
+averageprcp$avgT = averageTemp$MAAT
+averageprcp
+```
+Annual precipitation and mean annual temperatures for each site don't seem to correlate much. The two sites with the highest temperatures have the lowest preciptitation. The site with by far the most precipitation is the median with regards to temperature.
+
+### Question 10: What is the github link to your script for this activity?
+
+
+
+

@@ -1,5 +1,6 @@
 ---
 title: "Activity 3"
+author: "Delaney Scheiern"
 output: html_document
 ---
 
@@ -72,7 +73,7 @@ print(datW[1,])
 ```
 
 ### Question 3: What is the difference between skip and nrows in these two read.csv commands? What does header=FALSE do?
-**Skip tells the function not to read the specified row into the dataframe. nrows only puts the first number of specified rows into the dataframe. header=FALSE indicates that the first row does not contain the header titles that we want.**
+*Skip tells the function not to read the specified row into the dataframe. nrows only puts the first number of specified rows into the dataframe. header=FALSE indicates that the first row does not contain the header titles that we want.*
 
 ```{r}
 #convert to standardized format
@@ -153,14 +154,14 @@ quantile(datW$air.tempQ1)
 #look at days with really low air temperature
 datW[datW$air.tempQ1 < 8,] 
 ```
-According to https://www.wunderground.com/history/daily/us/ny/hamilton/KNYHAMIL11/date/2019-11-4, the low on 6/26/2018 near Hamilton was 44 degrees F. Our data shows that the low temperature on this day was 7.0 degrees C, or 44.6 degrees F, which is very close.
+*According to https://www.wunderground.com/history/daily/us/ny/hamilton/KNYHAMIL11/date/2019-11-4, the low on 6/26/2018 near Hamilton was 44 degrees F. Our data shows that the low temperature on this day was 7.0 degrees C, or 44.6 degrees F, which is very close.*
 
 
 ```{r}
  #look at days with really high air temperature
 datW[datW$air.tempQ1 > 33,]  
 ```
-According to https://www.wunderground.com/history/daily/us/ny/hamilton/KNYHAMIL11/date/2019-11-4, the high on 7/1/2018 near Hamilton was 95 degrees F. Our data shows that the high temperature on this day was 34.4 degrees C, or 93.9 degrees F, which is very close.
+*According to https://www.wunderground.com/history/daily/us/ny/hamilton/KNYHAMIL11/date/2019-11-4, the high on 7/1/2018 near Hamilton was 95 degrees F. Our data shows that the high temperature on this day was 34.4 degrees C, or 93.9 degrees F, which is very close.*
 
 ### Question 4: Are the extreme high and low values in this dataset reliably measured by the sensor? Explain your answer.
 *The extreme high and low values in this dataset are reliably measured by the sensor. The air temperature sensor has a range of -50 to 60 degrees C, which is a very inclusive and large range for air temperature in this area.*
@@ -186,7 +187,7 @@ points(datW$DD[lightscale > 0], lightscale[lightscale > 0],
 
 ### Question 5: The variable lightscale used to graph lightning values on the same plot as precipitation is not in the datW dataframe. Explain why you can still use it to subset values in datW. Provide evidence for your answer by creating a test that uses your assert function from part 1.
 
-**lightscale > 0 returns an array of booleans that represent for each index if there was lightning or not. The True indexes are used to subset datW. Since lightscale has the same length and order of observations as datW, we can use it to subset datW.**
+*lightscale > 0 returns an array of booleans that represent for each index if there was lightning or not. The True indexes are used to subset datW. Since lightscale has the same length and order of observations as datW, we can use it to subset datW.*
 ```{r}
 assert(length(lightscale > 0) == length(datW$timestamp), err.message = "Unequal lengths")
 assert(length(datW$DD[lightscale > 0]) == sum(lightscale > 0), err.message = "Unequal number of Trues")
@@ -205,7 +206,7 @@ datW$air.tempQ2 <- ifelse(datW$precipitation  >= 2 & datW$lightning.acvitivy >0,
 #filter out suspect measurements from wind speed.
 quantile(datW$wind.speed)
 datW$wind.speed2 <- ifelse(datW$wind.speed < 0.1, NA, ifelse(datW$wind.speed > 1.5, NA, datW$wind.speed))
-#assert()
+#assert(datW$wind.speed==datW$wind.speed2, err.message = "Columns are not the same anymore")
 plot(datW$DD, datW$wind.speed2, pch=19, type="b", xlab = "Day of Year",
      ylab="Wind Speed")
 ```
@@ -213,9 +214,12 @@ plot(datW$DD, datW$wind.speed2, pch=19, type="b", xlab = "Day of Year",
 
 ### Question 7: Check that the soil temperature and moisture measurements are reliable in the days leading up to the sensor outage. Explain your reasoning and show all code. Keep in mind that precipitation and air temperature can be used to help provide context.
 ```{r}
-quantile(datW$soil.temp, na.rm = TRUE)
-quantile(datW$soil.moisture, na.rm = TRUE)
+range(datW$soil.temp, na.rm = TRUE)
+range(datW$soil.moisture, na.rm = TRUE)
+head(datW[datW$soil.moisture > 0.26,])
+head(datW[datW$precipitation > 5,])
 ```
+*The soil temperature and moisture measurements before the sensor outage are accurate. The ranges of values are well within the measurable ranges. The values for soil moisture spike with precipitation, as expected.*
 
 ### Question 8: The researchers requested a table with the average air temperature, wind speed, soil moisture, and soil temperature for their study period. They would also like the total precipitation. Indicate how many observations went into these calculations and the time period of measurement. Report your findings with the correct number of decimal places that is within the sensor error.
 ```{r}
@@ -226,9 +230,12 @@ mySumm <- datW %>% summarize(avg.airtemp = round(mean(air.temperature),1),
                              avg.soiltemp = round(mean(soil.temp, na.rm = TRUE),2),
                              total.precip = round(sum(precipitation, na.rm = TRUE),3))
 mySumm
+range(datW$DD)
+length(datW$DD)
 ```
+*2118 observations went into these calculations. The date range was from the 163rd day of the year to the 207th day of the year.*
 
-### Question 9: Make four plots of soil moisture, air temperature, and precipitation throughout all observations in the study period. Use the same x axis range for each plot. In a few sentences, briefly describe trends in the data.
+### Question 9: Make four plots of soil moisture, air temperature, soil temperature, and precipitation throughout all observations in the study period. Use the same x axis range for each plot. In a few sentences, briefly describe trends in the data.
 ```{r}
 par(mfrow=c(2,2))
 plot(datW$DD, datW$soil.moisture, pch=19, type="b", xlab = "Day of Year",
@@ -241,6 +248,7 @@ plot(datW$DD, datW$precipitation, pch=19, type="b", xlab = "Day of Year",
      ylab="Precipitation")
 
 ```
+*Soil moisture seems to peak on days with lots of precipitation, then slowly decrease. Soil temperature and air temperature seem to follow the exact same pattern, just at a different scale.*
 
 ### Question 10: Copy the URL of your Rscript in your GitHub repository.
-
+https://github.com/dscheiern/GEOG331/blob/master/Activity%203.Rmd

@@ -68,7 +68,6 @@ p2
 
 #3c.make a scatter plot with ggplot and get rid of grid lines,
 #show species by color, and increase the point size
-iris$Species <- as.factor(iris$Species)
 p3 <- ggplot(iris, aes(Sepal.Length, Sepal.Width)) + geom_point(shape = 1, size = 3, aes(color = Species)) + 
   theme(axis.text.y = element_text(size=10),
         axis.text.x = element_text(size=10),

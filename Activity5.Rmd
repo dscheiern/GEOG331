@@ -1,0 +1,311 @@
+---
+title: "Activity5"
+author: "Delaney Scheiern"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Question 1: Given the description and location of the stream, what factors would you expect to influence streamflow? Would there be times that you might expect higher flow than would be typical for a given amount of rain in the drainage basin?
+
+*Answer: On top of rain, other factors that would influence streamflow are the amount of sewage inflow, how the upstream basin is controlled, and how saturated the drainage area is. For a given amount of rain, there might be higher flow because of the sewage inflow or the regulations at the basin upstream.*
+
+```{r, message=FALSE, warning=FALSE}
+# load in lubridate
+library(lubridate)
+```
+
+```{r}
+# read in streamflow data
+datH <- read.csv("data/usgs_streamflow/stream_flow_data.csv",
+                na.strings = c("Eqp"))
+head(datH)
+```
+
+```{r}
+#read in precipitation data
+#hourly precipitation is in mm
+datP <- read.csv("data/usgs_streamflow/2049867.csv")
+head(datP)
+```
+
+```{r}
+#only use most reliable measurements
+datD <- datH[datH$discharge.flag == "A",]
+```
+
+```{r}
+#### define time for streamflow #####
+#convert date and time
+datesD <- as.Date(datD$date, "%m/%d/%Y")
+#get day of year
+datD$doy <- yday(datesD)
+#calculate year
+datD$year <- year(datesD)
+#define time
+timesD <- hm(datD$time)
+
+#### define time for precipitation #####    
+dateP <- ymd_hm(datP$DATE)
+#get day of year
+datP$doy <- yday(dateP)
+#get year 
+datP$year <- year(dateP)
+
+#### get decimal formats #####
+#convert time from a string to a more usable format
+#with a decimal hour
+datD$hour <- hour(timesD ) + (minute(timesD )/60)
+#get full decimal time
+datD$decDay <- datD$doy + (datD$hour/24)
+#calculate a decimal year, but account for leap year
+datD$decYear <- ifelse(leap_year(datD$year),datD$year + (datD$decDay/366),
+                        datD$year + (datD$decDay/365))
+#calculate times for datP                       
+datP$hour <- hour(dateP ) + (minute(dateP )/60)
+#get full decimal time
+datP$decDay <- datP$doy + (datP$hour/24)
+#calculate a decimal year, but account for leap year
+datP$decYear <- ifelse(leap_year(datP$year),datP$year + (datP$decDay/366),
+                        datP$year + (datP$decDay/365))
+```
+
+### Question 2: Explain how decimal year is calculated and how leap year is accounted for. What do the results of the leap_year function look like?
+
+*Answer: Decimal year is calculated by adding the ratio of day of the year over total number of days in the year. For a leap year, it divides by 366 instead of 365. The leap_year function returns TRUE or FALSE depending on whether or not the given year is a leap year.*
+
+### Question 3: How many observations are in the stream flow and precipitation data? What is the frequency of the observations for each data type?
+
+```{r, results='hide'}
+length(datP$DATE)
+length(datD$date)
+head(datP, 20)
+head(datD, 20)
+```
+*Answer: There are 16150 observations in the precipitation data and 393798 quality observations for the stream flow. The precipitation data is captured inconsistently, sometimes 10 times a day and sometimes only twice. The stream flow data is captured more frequently, every 15 minutes.*
+
+### Question 4: Look up the documentation on the expression function and explain what expression(paste()) in the plot argument did. Are there any issues with this default plot formatting and labels? How does resizing the plot affect these issues?
+*Answer: expression() returned a vector containing unevaluated arguments based on the characters concatinated by paste(). With this default plot formatting, the labels stay the same size no matter the size of the plot window. When the window is small, the plot becomes almost non-existant because the labels take up too much space.*
+
+```{r}
+#basic formatting
+aveF <- aggregate(datD$discharge, by=list(datD$doy), FUN="mean")
+colnames(aveF) <- c("doy","dailyAve")
+sdF <- aggregate(datD$discharge, by=list(datD$doy), FUN="sd")
+colnames(sdF) <- c("doy","dailySD")
+#start new plot
+#dev.new(width=8,height=8)
+#bigger margins
+par(mai=c(1,1,1,1))
+#make plot
+plot(aveF$doy,aveF$dailyAve, 
+    type="l", 
+    xlab="Year", 
+    ylab=expression(paste("Discharge ft"^"3 ","sec"^"-1")),
+    lwd=2,
+    ylim=c(0,90),
+    xaxs="i", yaxs ="i",#remove gaps from axes
+    axes=FALSE)#no axes
+polygon(c(aveF$doy, rev(aveF$doy)),#x coordinates
+        c(aveF$dailyAve-sdF$dailySD,rev(aveF$dailyAve+sdF$dailySD)),#ycoord
+        col=rgb(0.392, 0.584, 0.929,.2), #color that is semi-transparent
+        border=NA#no border
+        )       
+axis(1, seq(0,360, by=40), #tick intervals
+        lab=seq(0,360, by=40)) #tick labels
+axis(2, seq(0,80, by=20),
+        seq(0,80, by=20),
+        las = 2)#show ticks at 90 degree angle
+legend("topright", c("mean","1 standard deviation"), #legend items
+                lwd=c(2,NA),#lines
+                col=c("black",rgb(0.392, 0.584, 0.929,.2)),#colors
+                pch=c(NA,15),#symbols
+                 bty="n")#no legend border
+
+```
+
+
+### Question 5: Add a line that shows the observations for 2017 onto this graph of the average. You may have to adjust the axes limits. Change the x axis label so that they show each month instead of doy. Make the 2017 line a different color than current colors in your plot.
+*Answer: Below, I alter the graph as described.*
+```{r}
+dat2017 <- datD[datD$year == 2017,]
+ave2017 <- aggregate(dat2017$discharge, by=list(dat2017$doy), FUN="mean")
+colnames(ave2017) <- c("doy","dailyAve")
+
+#make plot
+plot(aveF$doy,aveF$dailyAve, 
+    type="l", 
+    xlab="Year", 
+    ylab=expression(paste("Discharge ft"^"3 ","sec"^"-1")),
+    lwd=2,
+    ylim=c(0,90),
+    xaxs="i", yaxs ="i",#remove gaps from axes
+    axes=FALSE)#no axes
+polygon(c(aveF$doy, rev(aveF$doy)),#x coordinates
+        c(aveF$dailyAve-sdF$dailySD,rev(aveF$dailyAve+sdF$dailySD)),#ycoord
+        col=rgb(0.392, 0.584, 0.929,.2), #color that is semi-transparent
+        border=NA#no border
+        )       
+lines(ave2017$doy,ave2017$dailyAve,col="green")
+axis(1, seq(15,365, by=31), #tick intervals
+        lab=c("Jan","Feb","Mar","Apr","May","June","July","Aug","Sept","Oct","Nov","Dec")) #tick labels
+axis(2, seq(0,80, by=20),
+        seq(0,80, by=20),
+        las = 2)#show ticks at 90 degree angle
+legend("topright", c("mean","1 standard deviation","2017 mean"), #legend items
+                lwd=c(2,NA,2),#lines
+                col=c("black",rgb(0.392, 0.584, 0.929,.2),"green"),#colors
+                pch=c(NA,15,NA),#symbols
+                 bty="n")#no legend border
+``` 
+
+
+### Question 6: Describe the trends streamflow in 2017 and the mean/standard deviation. After looking at this plot more closely, why do you think median and quartiles might better represent typical conditions for streamflow discharge compared to the mean and standard deviation?
+*Answer: The mean stays relatively consistent throughout the year, with a small increase February through May. We can see that standard deviation spikes at certain times, which our 2017 line can help explain. Since different years have random spikes, those can also be seen affecting the standard deviation. The standard deviation is also wider around February to May, which means there is more variability during those peak months. Median might be a better measurement because it is not as influenced by outliers as the mean, which is very important in this case since there are a lot of outliers. Since the standard deviation relies on the mean, we also shouldn't use this. Quartiles are good at representing data with outliers, and we can adjust which percentiles we look at depending on the amount of outliers.*
+
+## Making a hydrograph
+
+### Question 7: Create a dataframe that indicates what days have a full 24 hours of precipitation measurements. Make a plot of all discharge measurements and symbolize the days that have all precipitation measurements available. Be sure to include all labels.
+
+```{r}
+#subsest discharge and precipitation within range of interest
+hydroD <- datD[datD$doy >= 248 & datD$doy < 250 & datD$year == 2011,]
+hydroP <- datP[datP$doy >= 248 & datP$doy < 250 & datP$year == 2011,]
+min(hydroD$discharge)
+```
+
+
+```{r}
+#get minimum and maximum range of discharge to plot
+#go outside of the range so that it's easy to see high/low values
+#floor rounds down the integer
+yl <- floor(min(hydroD$discharge))-1
+#ceiling rounds up to the integer
+yh <- ceiling(max(hydroD$discharge))+1
+#minimum and maximum range of precipitation to plot
+pl <- 0
+pm <-  ceiling(max(hydroP$HPCP))+.5
+#scale precipitation to fit on the 
+hydroP$pscale <- (((yh-yl)/(pm-pl)) * hydroP$HPCP) + yl
+```
+
+```{r}
+par(mai=c(1,1,1,1))
+#make plot of discharge
+plot(hydroD$decDay,
+    hydroD$discharge, 
+    type="l", 
+    ylim=c(yl,yh), 
+    lwd=2,
+    xlab="Day of year", 
+    ylab=expression(paste("Discharge ft"^"3 ","sec"^"-1")))
+#add bars to indicate precipitation 
+for(i in 1:nrow(hydroP)){
+ polygon(c(hydroP$decDay[i]-0.017,hydroP$decDay[i]-0.017,
+            hydroP$decDay[i]+0.017,hydroP$decDay[i]+0.017),
+        c(yl,hydroP$pscale[i],hydroP$pscale[i],yl),
+        col=rgb(0.392, 0.584, 0.929,.2), border=NA)
+}
+``` 
+
+
+### Question 8: Choose another day to make a second hydrograph during the winter. Explain how you chose a time period. How do the two hydrographs compare? Are there any limitations in interpreting the hydrograph given we only have hourly precipitation? Why do you think spikes in streamflow occur without rain?
+*Answer: Below, I make a hydrograph for the 357th day of the year in 2007.*
+```{r}
+#subsest discharge and precipitation within range of interest
+hydroD2 <- datD[datD$doy >= 357 & datD$doy < 359 & datD$year == 2007,]
+hydroP2 <- datP[datP$doy >= 357 & datP$doy < 359 & datP$year == 2007,]
+min(hydroD2$discharge)
+
+#get minimum and maximum range of discharge to plot
+#go outside of the range so that it's easy to see high/low values
+#floor rounds down the integer
+yl2 <- floor(min(hydroD2$discharge))-1
+#ceiling rounds up to the integer
+yh2 <- ceiling(max(hydroD2$discharge))+1
+#minimum and maximum range of precipitation to plot
+pl2 <- 0
+pm2 <- ceiling(max(hydroP2$HPCP))+.5
+#scale precipitation to fit on the 
+hydroP2$pscale <- (((yh2-yl2)/(pm2-pl2)) * hydroP2$HPCP) + yl2
+
+par(mai=c(1,1,1,1))
+#make plot of discharge
+plot(hydroD2$decDay,
+    hydroD2$discharge, 
+    type="l", 
+    ylim=c(yl2,yh2), 
+    lwd=2,
+    xlab="Day of year", 
+    ylab=expression(paste("Discharge ft"^"3 ","sec"^"-1")))
+#add bars to indicate precipitation 
+for(i in 1:nrow(hydroP2)){
+ polygon(c(hydroP2$decDay[i]-0.017,hydroP2$decDay[i]-0.017,
+            hydroP2$decDay[i]+0.017,hydroP2$decDay[i]+0.017),
+        c(yl2,hydroP2$pscale[i],hydroP2$pscale[i],yl2),
+        col=rgb(0.392, 0.584, 0.929,.2), border=NA)
+}
+``` 
+
+*I chose a time period based on days with a lot of precipitation, and added an extra day to better see the decline in discharge. Both hydrographs have peaks in discharge after precipitation. Since we only have hourly precipitation, it is more difficult to evaluate the delay in precipitation and spikes in discharge. Spikes in discharge when there's not rain could be due to ice in the winter, or could depend on how the basin is regulated.*
+
+### Question 9: Make a violin plot by season for 2016 and 2017 separately. Be sure the plots are aesthetically pleasing and properly labelled. Describe differences in streamflow discharge between seasons and years.
+
+*Answer: Below, I divide seasons by the meteorological definition, opposed to the astronomical seasons. Then I make two violin plots for 2016 and 2017 side by side.*
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+```{r, warning=FALSE}
+### add a season column as a factor
+# save day of year for season breaks (non-leap year)
+march1 <- 60
+june1 <- 152
+sept1 <- 244
+dec1 <- 335
+
+datD2016 <- datD[datD$year == 2016,]
+datD2017 <- datD[datD$year == 2017,]
+
+datD2016$season <- #leap year
+                  ifelse(datD2016$decDay >= sept1+1 & datD2016$decDay < dec1+1, "fall",
+                          ifelse(datD2016$decDay >= march1+1 & datD2016$decDay < june1+1, "spring",
+                                 ifelse(datD2016$decDay >= june1+1 & datD2016$decDay < sept1+1, "summer",
+                                        "winter")))
+datD2017$season <- #not a leap year
+                  ifelse(datD2017$decDay >= sept1 & datD2017$decDay < dec1, "fall",
+                          ifelse(datD2017$decDay >= march1 & datD2017$decDay < june1, "spring",
+                                 ifelse(datD2017$decDay >= june1 & datD2017$decDay < sept1, "summer",
+                                        "winter")))
+
+datD2016$seasonPlot <- as.factor(datD2016$season)
+summary(datD2016$seasonPlot)
+datD2017$seasonPlot <- as.factor(datD2017$season)
+summary(datD2017$seasonPlot)
+
+library(patchwork)
+#make a violin plot for 2016 and 2017 by season side by side
+g1 <- ggplot(data= datD2016, aes(season,discharge)) + 
+    geom_violin() +
+    ggtitle("2016 Discharge by Season")
+g2 <- ggplot(data= datD2017, aes(season,discharge)) + 
+    geom_violin() +
+    ggtitle("2017 Discharge by Season")
+g1+g2
+``` 
+
+*In both 2016 and 2017, there was the most discharge in fall. In 2017, there was a much greater range of values, but the means are only slightly higher than in 2016. In winter 2017 there was a smaller range of values than in 2016. Fall 2017 and summer 2016 have wider plots because there are more observations at those levels rather than being further outside the distribution.*
+
+### Question 10: Copy and paste the GitHub URL for your Rscript here.
+https://github.com/dscheiern/GEOG331/blob/master/Activity5.Rmd
+
+
+
+
+
+
+
+

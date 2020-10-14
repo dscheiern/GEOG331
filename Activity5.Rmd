@@ -169,6 +169,46 @@ legend("topright", c("mean","1 standard deviation","2017 mean"), #legend items
 
 ### Question 7: Create a dataframe that indicates what days have a full 24 hours of precipitation measurements. Make a plot of all discharge measurements and symbolize the days that have all precipitation measurements available. Be sure to include all labels.
 
+```{r, warning=FALSE}
+library(dplyr)
+#find days with all 24 hours
+hourCounts <- datP %>% group_by(year, doy) %>%
+    count()
+all24 <- hourCounts[hourCounts$n == 24,]
+datP <- datP %>% mutate(doy_year = paste(doy, year, sep= "_"))
+all24 <- all24 %>% mutate(doy_year = paste(doy, year, sep= "_"))
+datP$allHours <- ifelse(datP$doy_year %in% all24$doy_year, 1, 0)
+```
+
+```{r}
+#bigger margins
+par(mai=c(1,1,1,1))
+#make plot
+plot(datD$decYear,datD$discharge, 
+    type="l", 
+    xlab="Year", 
+    ylab=expression(paste("Discharge ft"^"3 ","sec"^"-1")),
+    lwd=2,
+    ylim=c(0,400),
+    xaxs="i", yaxs ="i")#remove gaps from axes  
+for (i in 1:nrow(all24)){
+    good <- datP[datP$allHours == 1,]
+    # middle row
+    m <- i + 24*(i-1) + 12
+    points(good[m,"decYear"], 375, pch=15, col="cyan", cex=0.7)
+}
+legend("topright", c("Precip"), #legend items
+                lwd=c(NA),#lines
+                col=c("cyan"),#colors
+                pch=c(15),#symbols
+                 bty="n",#no legend border
+                cex = 0.8,#smaller
+                x.intersp = .5)#space between symbol and text
+title("Discharge plus Days with 24 hour Precip Data")
+```
+
+
+
 ```{r}
 #subsest discharge and precipitation within range of interest
 hydroD <- datD[datD$doy >= 248 & datD$doy < 250 & datD$year == 2011,]

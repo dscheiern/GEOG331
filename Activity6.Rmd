@@ -1,11 +1,14 @@
 ---
 title: "Activity 6"
+author: Delaney Scheiern
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+## Set up Spatial Packages
 
 ```{r, warning=FALSE}
 # load packages
@@ -16,7 +19,7 @@ library(rgeos)
 library(plyr)
 ```
 
-
+## Read in spatial data
 ```{r}
 #read in shapefiles
 #readOGR in rgdal does this
@@ -26,27 +29,21 @@ g2005 <- readOGR("data\\GNPglaciers\\GNPglaciers_2005.shp", stringsAsFactors = T
 g2015 <- readOGR("data\\GNPglaciers\\GNPglaciers_2015.shp", stringsAsFactors = T)
 ```
 
+## Explore data
 ```{r}
 head(g2015@data)
 ```
 
-
 ```{r}
-g2015@polygons[[1]]
-```
-
-```{r}
+#projection
 g1966@proj4string
 ```
 
 ### Question 1: Look up the projection and datum. What does zone mean? Describe the projected coordinate system and the properties that it maintains. What spatial scale is this projected coordinate system meant for?
 
-*Answer: The projection is UTM (Universal Transverse Mercator). This is a horizontal position representation and treats the earth as a perfect ellipsoid. It divides earth into 60 zones. Zone 12 is one of these zones. NAD 83 is the most current datum that provides spatial reference for Canada and the US using latitude, longitude, and some height info.*
+*Answer: The projection is UTM (Universal Transverse Mercator). This is a horizontal position representation and treats the earth as a perfect ellipsoid. It divides earth into 60 zones. Zone 12 is one of these zones. NAD 83 is the most current datum that provides spatial reference for Canada and the US using latitude, longitude, and some height info. It is meant for a large or medium scale.*
 
-```{r}
-spplot(g1966, "GLACNAME")
-```
-
+## Prepare data for visualization and analysis
 ```{r}
 #fix glacier name so that it is consistent with the entire time period
 g2015@data$GLACNAME <- ifelse(g2015@data$GLACNAME == "North Swiftcurrent Glacier", "N. Swiftcurrent Glacier",
@@ -64,6 +61,7 @@ blueL <- raster("data\\glacier_09_05_14\\l08_blue.tif")
 
 
 ```{r}
+#check coordinate system
 redL@crs
 ```
 
@@ -72,19 +70,7 @@ redL@crs
 rgbL <- brick(redL, greenL, blueL)
 ```
 
-```{r}
-#plot with color
-#show axes for reference
-#add contrast to the imagery to see it better
-par(mai=c(1,1,1,1))
-plotRGB(rgbL, stretch="lin", axes=TRUE)
-#add polygons to plot
-plot(g1966, col="tan3", border=NA, add=TRUE)
-plot(g1998, col="royalblue3", add=TRUE, border=NA)
-plot(g2005, col="darkgoldenrod4", add=TRUE, border=NA)
-plot(g2015, col="tomato3", add=TRUE, border=NA)
-```
-
+## Practice visualizing glacier data
 ```{r}
 # plot same as above with different extent
 plotRGB(rgbL, ext=c(289995,310000,5371253,5400000), stretch="lin")
@@ -94,6 +80,7 @@ plot(g2005, col="darkgoldenrod4", add=TRUE, border=NA)
 plot(g2015, col="tomato3", add=TRUE, border=NA)
 ```
 
+## Read in raster data
 ```{r}
 #set up years to read in
 ndviYear <- seq(2003,2016)
@@ -106,6 +93,7 @@ for(i in 1:length(ndviYear)){
 ```
 
 ```{r}
+# check projection
 NDVIraster[[1]]@crs
 ```
 
@@ -114,23 +102,22 @@ NDVIraster[[1]]@crs
 *Answer: UTM is a conformal projection, so it preserves shape rather than area. An equal area projection is important for us working with glacier data because we are focused on analyzing change in area over time, which will be inaccurate with UTM.*
 
 
-```{r}
-plot(NDVIraster[[1]])
-```
-
 ### Question 3: What happens if you try to plot NDVI with the 1966 glacier polygons? Make a plot of the 2003 NDVI data side by side with the 1966 glacier extent. Explain why you can't put both data files on the same map.
 
 ```{r}
 par(mai=c(1,1,1,1), mfrow = c(1,2))
 plot(NDVIraster[[1]])
+title("NDVI data")
 
 plotRGB(rgbL, stretch="lin", axes=TRUE)
 #add polygons to plot
 plot(g1966, col="royalblue", border=NA, add=TRUE)
+title("1966 Glacier Data")
 ```
-The data files can't be put on the same map because they are different projections. You can see that the x and y coordinates for the plots are completely different.
 
+The glaciers will not appear on top of the NDVI data. The data files can't be put on the same map because they are different projections. You can see that the x and y coordinates for the plots are completely different.
 
+## Reproject the glaciers to help with visualization and analysis
 ```{r}
 #reproject the glaciers
 #use the NDVI projection
@@ -149,9 +136,10 @@ plot(NDVIraster[[13]], ext=g2015p, axes=FALSE)
 plot(g2015p, col="transparent", border="black", add=TRUE)
 
 ```
-The glaciers are in areas with the lowest NDVI, and areas around glaciers have lower levels of NDVI.
 
+*Answer: The glaciers are in areas with the lowest NDVI, and areas around glaciers have gradually larger levels of NDVI.*
 
+## Analyze glaciers
 ```{r}
 #calculate area for all polygons
 #add directly into data table for each shapefile
@@ -162,35 +150,17 @@ g2015p@data$a2015m.sq <- area(g2015p)
 ```
 
 ```{r}
+# join data into table
 gAllp1 <- join(g1966p@data,g1998p@data, by="GLACNAME", type="full")
 gAllp2 <- join(gAllp1,g2005p@data, by="GLACNAME", type="full")
 gAll <- join(gAllp2,g2015p@data, by="GLACNAME", type="full")
 ```
 
-```{r}
-plot(c(1966,1998,2005,2015), 
-        c(gAll$a1966m.sq[1],gAll$a1998m.sq[1], gAll$a2005m.sq[1],gAll$a2015m.sq[1]),
-        type="b", 
-        pch=19, col=rgb(0.5,0.5,0.5,0.5), xlim= c(1965,2016),
-        ylim=c(0,2000000),
-        ylab="Area of glacier (meters squared)",
-        xlab="Year")
-        
-for(i in 2:39){
-points(c(1966,1998,2005,2015), 
-        c(gAll$a1966m.sq[i],gAll$a1998m.sq[i], gAll$a2005m.sq[i],gAll$a2015m.sq[i]),
-        type="b", 
-        pch=19, col=rgb(0.5,0.5,0.5,0.5))
-}
-```
-
 ### Question 5: Calculate the % change in area between 1966 and 2015. Make a spplot of the glaciers in 2015 showing the % change that each glacier has experienced.
 
-```{r}
-#(percChange <- (sum(g2015p@data$a2015m.sq) - sum(g1966p@data$a1966m.sq))/sum(g2015p@data$a2015m.sq))
+```{r, warning=FALSE}
 gAll$percChange <- (gAll$a2015m.sq - gAll$a1966m.sq)/gAll$a1966m.sq
 
-#gAll$percChange <- as.factor(gAll$percChange)
 # put inside raster
 g2015p@data$percChange <- gAll$percChange
 # make color percChange
@@ -198,8 +168,8 @@ spplot(g2015p, "percChange")
 ```
 
 ```{r}
+# find glacial difference over years
 diffPoly <- gDifference(g1966p, g2015p, checkValidity = 2L)
-plot(diffPoly)
 ```
 
 ```{r}
@@ -221,18 +191,21 @@ gmax1998 <- subset(g1998, g1998@data$GLACNAME == boul$GLACNAME)
 gmax2005 <- subset(g2005, g2005@data$GLACNAME == boul$GLACNAME)
 gmax2015 <- subset(g2015, g2015@data$GLACNAME == boul$GLACNAME)
 
+
 plotRGB(rgbL, ext=gmax1966@bbox, stretch="lin")
-#plotRGB(rgbL, stretch="lin", axes=FALSE)
+# add title while axes are off
+legend("top", legend=NA, title=paste(round(-100*lossVal, 2), "% Lost by", boul$GLACNAME), bty = "n")
+
 #add polygons to plot
 plot(gmax1966, col="transparent", border="black", add=TRUE)
 plot(gmax1998, col="transparent", border="tan", add=TRUE)
 plot(gmax2005, col="transparent", border="royalblue", add=TRUE)
 plot(gmax2015, col="transparent", border="red", add=TRUE)
-title(paste(lossVal, "% Lost by ", boul$GLACNAME))
+legend("topright",legend=c("1966","1998","2005","2015"), lty=1, col=c("black","tan","royalblue","red"), cex=0.8)
 
 ```
 
-
+## Analyze vegetation growth
 ```{r}
 #extract NDVI values
 NDVIdiff <- list()
@@ -266,7 +239,7 @@ fun <- function(x) {
     if(is.na(x[1])){
         NA}else{
         #fit a regression and extract a slope
-            lm(x ~ timeT)$coefficients[2] }}
+            lm(x ~ timeT)$coefficients[2]}}
 #apply the slope function to the rasters
 NDVIfit <- calc(NDVIstack,fun)
 #plot the change in NDVI
@@ -274,7 +247,7 @@ plot(NDVIfit, axes=FALSE)
 ```
 
 ### Question 7: What are the patterns in maximum NDVI change across the park? Although this type of quick assessment is helpful, what additional information for the regression would you need to more accurately assess this question?
-*Answer: It seems like the increase in vegetation is occurring where there is runoff from the glaciers rather than where the glaciers shrank. Additional information that would be helpful is the slope of the terrain.*
+*Answer: Much of the change across the park is minuscule. It seems like the greatest increase in vegetation is occurring relatively far from the glaciers, which I believe is where there is runoff from the glaciers. Additional information that would be helpful is the slope of the terrain.*
 
 
 ```{r}
@@ -305,6 +278,7 @@ plot(glacZones)
 *Answer: glacZones looks like the outline of the glaciers from 1966. Raster data is stored as pixels with specific values. Since buffRaster and glacZones were both created using the first NDVIraster to match cells and extent, they are directly comparable. When they are are subtracted, the glacier pixel values are canceled out and they disappear. Similarly, gDifference returns the regions of the first geometries that are not in the second geometries.*
 
 ```{r}
+# find change in area around glaciers
 meanChange <- zonal(NDVIfit, #NDVI function to summarize
                 glacZones,#raster with zones
                 "mean")#function to apply
@@ -312,23 +286,22 @@ head(meanChange)
 ```
 
 ### Question 9: Add the mean change in NDVI per year into the 2015 glacier polygons. Make a map where the mean change in vegetation is color coded within the 2015 glacier polygons. Does there seem to be any patterns?
-```{r}
+```{r, warning=FALSE}
 g2015p@data$meanChange <- meanChange[2:40,"mean"]
 
 spplot(g2015p, "meanChange")
 ```
 
-### Question 10: Do you think vegetation is changing as glaciers recede and why? Are the values of yearly change substantial? Hint: consider the range of NDVI and also consider the magnitude of change over a 10 or 15 year period.
-*Answer: I think vegetation is changing as glaciers recede. However, the values of yearly change in most areas are not substantial. The mean change in most areas is below the level that was described as substantial in Anderson's paper.*
-```{r}
+*Answer: There doesn't seem to be much of a pattern. Most values seem to be very small or negative, while there are a couple glaciers with positive change. This aligns with the previous observation that most of the increase in NDVI was away from the glaciers.*
 
-```
+
+### Question 10: Do you think vegetation is changing as glaciers recede and why? Are the values of yearly change substantial? Hint: consider the range of NDVI and also consider the magnitude of change over a 10 or 15 year period.
+*Answer: I think it is difficult to conclude that vegetation is changing as glaciers recede over this small of a time period. The mean change in most areas is below the level that was described as substantial in Anderson's paper. However, although small, there is clearly a pattern of vegetation growth from runoff of melting glaciers.*
+
 
 ### Question 11: What is the average maximum NDVI across all years within the Glacier National Park? Is there a pattern between glacier size and NDVI within 500m? Make a map that shows both the recent glacier extent color coded with the maximum NDVI range, and the raster of average maximum NDVI.
 
 ```{r}
-# use IQR for color cut offs
-
 # take average value across all years
 NDVImeans <- calc(NDVIstack,fun=mean)
 plot(NDVImeans)
@@ -343,30 +316,25 @@ plot(g1966p@data$a1966m.sq, meanVals[2:40,"mean"],
     pch=19)
 ```
 
+*Answer: Yes, there is a pattern between glacier size and NDVI within 500m. As glacier size increases, NDVI decreases exponentially.*
+
 ```{r}
-breaks <- quantile(meanVals)
-colors <- c("red", "white", "blue", "purple", "yellow")
 means <- meanVals[2:40, "mean"]
 g2015p@data$colors <- ifelse(means < 0.2, "red",
                              ifelse(means < 0.4, "purple", "blue"))
 
-plot(NDVImeans, ext=g2015p)
+plot(NDVImeans, ext=g2015p, axes=FALSE)
 plot(g2015p, border=g2015p@data$colors, add=TRUE)
 legend("topright",
        legend = c("NDVI < 0.2", "0.2 <= NDVI < 0.4", "NDVI >=0.4"), cex = 0.4, fill=c("red", "purple", "blue"))
 
 ```
-The average maximum NDVI across all years within the park is .
-
-```{r}
-
-```
 
 ### Question 12: Using the Carlson and Anderson paper, what kinds of data would you need to validate what is happening with vegetation as glaciers recede? What might be the next steps in making a more accurate analysis of vegetation change for research?
-*Answer: *
+*Answer: To help us validate what is happening with vegetation as glaciers recede, we need elevation data. We also need to know where there is persistent snow coverage in addition to glaciers. Next steps would be to include the terrain slopes and account for the impact of snow cover on vegetation growth.*
 
 ### Question 13: Copy and paste the link to your GitHub code.
-
+https://github.com/dscheiern/GEOG331/blob/master/Activity6.Rmd
 
 
 

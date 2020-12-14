@@ -1,0 +1,429 @@
+---
+title: "Final Project"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(readxl)
+
+laws <- read_csv(file.path("data","waste_laws.csv"))
+tons <- read_csv(file.path("data","allYears.csv"))
+
+head(tons)
+sums <- tons %>% group_by(County) %>%
+                  summarize(q1 = sum(`1st Qtr.`),
+                            q2 = sum(`2nd Qtr.`),
+                            q3 = sum(`3rd Qtr.`),
+                            q4 = sum(`4th Qtr.`),
+                            total = sum(total))
+```
+
+```{r}
+fileName <- file.path("data","population.xlsx")
+pop <- readxl::read_excel(fileName)
+pop <- pop[pop$Year >= 1990,]
+pop.total <- pop %>% group_by(Year, County) %>%
+                    summarize(population = sum(Population))
+
+
+test <- full_join(tons, pop.total, by= c("year"="Year", "County"="County"))
+
+(num.laws <- laws %>% count(Year))
+year.ton.totals <- tons %>% group_by(year) %>%
+  summarize(tot = sum(total))
+head(year.ton.totals)
+```
+
+```{r}
+year.pop.totals <- pop.total %>% group_by(Year) %>%
+  summarize(tot = sum(population))
+
+popNumLaws <- data.frame(Year=year.pop.totals$Year, 
+                         Tons=year.ton.totals$tot[1:length(year.ton.totals$tot)-1],
+                         Laws=num.laws$n[1:length(num.laws$n)-1],
+                         Pop=year.pop.totals$tot)
+
+popNumLaws <- popNumLaws %>% mutate(TonPer = Tons/Pop)
+```
+
+```{r}
+### tons includes year, Q1-4 tons, and total tons for each county
+### 1990-2019
+tons <- read_csv(file.path("data","allYears.csv"))
+
+### statewide.tons includes year, total tonnage
+statewide.tons <- tons %>% group_by(year) %>%
+  summarize(total_tons = sum(total))
+
+### counties.tons includes year, County name, total tonnage
+counties.tons <- tons %>% select(year, County, total_tons=total)
+```
+
+```{r}
+# Populations for each county for 1990-2018
+populations <- read_csv(file.path("data","population.csv"))
+# Populations statewide for 1990-2018
+statewide.pop <- populations %>% group_by(Year) %>%
+  summarize(total_pop = sum(population))
+```
+
+```{r}
+laws <- read_csv(file.path("data","waste_laws_categories.csv"))
+#laws$Year <- as.factor(laws$Year)
+# num.laws is count of laws made each year
+num.laws <- laws %>% count(Year)
+# add row with num laws in previous year
+num.laws$lag <- lag(num.laws$n)
+# add row with cumulative laws before that year
+num.laws$cumul <- cumsum(num.laws$n)
+# get number of industry laws
+#num.laws$household_n <- 
+temp <- laws %>% group_by(Year) %>% count(`Household?`, .drop=FALSE) %>% filter(`Household?` == 'X')
+temp <- temp %>% select(Year, household_n = n)
+num.laws <- full_join(num.laws, temp, by='Year')
+num.laws$hh_lag <- lag(num.laws$household_n)
+#
+# get number of household laws
+#num.laws$industry_n <- 
+col <- laws %>% group_by(Year) %>% filter(`Industry?` == 'X') %>% count(`Industry?`) %>% ungroup()
+num.laws <- num.laws %>% add_column(industry_n = col$n)
+num.laws$ind_lag <- lag(num.laws$industry_n)
+num.laws$ind_cumul <- cumsum(num.laws$industry_n)
+num.laws <- num.laws %>% mutate_all(funs(replace_na(., 0)))
+num.laws$hh_cumul <- cumsum(num.laws$household_n)
+
+num.laws
+```
+
+```{r}
+dat.industry <- read_csv(file.path("data","download.csv"))
+gdps <- dat.industry[dat.industry$LineCode == 1,]
+gdps <- gdps %>% separate(GeoName, c("County","State"), sep=",")
+fixed.gdps <- gdps %>% pivot_longer(cols=starts_with("20"), names_to="Year", values_to="GDP")
+fixed.gdps$Year <- as.integer(fixed.gdps$Year)
+county.gdp <- fixed.gdps %>% select(c('County','Year','GDP'))
+```
+
+```{r}
+statewide.gdp <- read_csv(file.path("data","gdp_statewide_byindustry.csv"))
+statewide.gdp <- statewide.gdp %>% select(-c('Series ID','Region Name','Region Code'))
+#(state.gdp <- statewide.gdp %>% pivot_longer(cols=everything(), names_to = 'Year'))
+#state.gdp$Year <- as.integer(state.gdp$Year)
+state.gdp <- as.data.frame(t(as.matrix(statewide.gdp)))
+names(state.gdp) <- as.matrix(state.gdp[1, ])
+state.gdp <- state.gdp[-1, ]
+state.gdp[] <- lapply(state.gdp, function(x) type.convert(as.character(x)))
+state.gdp <- cbind('Year'=rownames(state.gdp), data.frame(state.gdp, row.names=NULL))
+state.gdp$Year <- as.integer(state.gdp$Year)
+```
+
+```{r}
+all_data <- inner_join(statewide.tons, statewide.pop, by=c("year"="Year"))
+all_data <- inner_join(all_data, state.gdp, by=c("year"="Year"))
+all_data <- inner_join(all_data, num.laws, by=c("year"="Year"))
+all_data
+```
+
+```{r}
+c_data <- inner_join(county.gdp, populations, by=c('County'='County', 'Year'='Year'))
+c_data <- inner_join(c_data, counties.tons, by=c('Year'='year','County'='County'))
+c_data <- inner_join(c_data, num.laws, by=c('Year'='Year'))
+c_data
+```
+```{r}
+str(all_data)
+```
+
+
+```{r}
+model1 <- lm(total_tons ~ .-year -Fin_Ensu_Estate -Information -Resources_Mining -ind_lag -Ed_Health_Soci -ind_cumul -hh_cumul -Nondurable_Manu -Total_GDP -total_pop, data=all_data)
+summary(model1)
+```
+
+```{r}
+source("https://cipolli.com/students/code/plotResiduals.R")
+#plotResiduals(model1)
+```
+
+```{r}
+#plotResiduals(model1)
+```
+
+
+```{r, fig.width = 9, fig.height = 3}
+library(patchwork)
+tonsvsyears <- ggplot(all_data, aes(year, total_tons)) +
+  geom_point() + 
+  ggtitle("Statewide Tonnage by Year") + 
+  xlab("Year") + 
+  ylab("Tonnage") +
+  theme_bw()
+
+tonsppvsyears <- ggplot(all_data, aes(year, total_tons/total_pop)) +
+  geom_point() + 
+  ggtitle("Statewide Tonnage Per \nPerson by Year") + 
+  xlab("Year") + 
+  ylab("Tonnage Per Person") +
+  theme_bw()
+
+tonspgdpvsyears <- ggplot(all_data, aes(year, total_tons/Total_GDP)) +
+  geom_point() + 
+  ggtitle("Statewide Tonnage Per \nGDP Dollar by Year") + 
+  xlab("Year") + 
+  ylab("Tonnage Per GDP Dollar") +
+  theme_bw()
+
+tonsvsyears + tonsppvsyears + tonspgdpvsyears
+```
+
+```{r, fig.width = 9, fig.height = 3}
+tonspcumulvsyears <- ggplot(all_data, aes(year, total_tons/cumul)) +
+  geom_point() + 
+  ggtitle("Statewide Tonnage Per \nCumulative # of Laws \nby Year") + 
+  xlab("Year") + 
+  ylab("Total Tonnage Per Person \nPer Cumulative # of Laws") +
+  theme_bw()
+
+tonspnlawsvsyears <- ggplot(all_data, aes(year, total_tons/n)) +
+  geom_point() + 
+  ggtitle("Statewide Tonnage Per \n# of Laws by Year") + 
+  xlab("Year") + 
+  ylab("Total Tonnage Per Person \nPer # of Laws") +
+  theme_bw()
+
+tonsplagvsyears <- ggplot(all_data, aes(year, total_tons/lag)) +
+  geom_point() + 
+  ggtitle("Statewide Tonnage Per \n# of Laws Prior Year \nby Year") + 
+  xlab("Year") + 
+  ylab("Total Tonnage Per Person \nPer # of Laws Prior Year") +
+  theme_bw()
+
+tonspindnvsyears <- ggplot(all_data, aes(year, total_tons/industry_n)) +
+  geom_point() + 
+  ggtitle("Statewide Tonnage Per \n# of Industry Laws \nby Year") + 
+  xlab("Year") + 
+  ylab("Total Tonnage Per Person \nPer # of Industry Laws") +
+  theme_bw()
+
+tonsphhnvsyears <- ggplot(all_data, aes(year, total_tons/household_n)) +
+  geom_point() + 
+  ggtitle("Statewide Tonnage Per \n# of Household Laws \nby Year") + 
+  xlab("Year") + 
+  ylab("Total Tonnage Per Person \nPer # of Household Laws") +
+  theme_bw()
+
+#(tonspcumulvsyears + tonspnlawsvsyears + tonsplagvsyears)/(tonspindnvsyears + tonsphhnvsyears)
+tonspnlawsvsyears + tonsplagvsyears + tonspcumulvsyears
+```
+
+```{r, fig.width = 9, fig.height = 6}
+tonsvslaws <- ggplot(all_data, aes(n, total_tons)) +
+  geom_point() + 
+  ggtitle("Tonnage by Number of \nLaws") + 
+  xlab("Number of Laws") + 
+  ylab("Total Tonnage") +
+  theme_bw()
+
+tonsvslaglaws <- ggplot(all_data, aes(lag, total_tons)) +
+  geom_point() + 
+  ggtitle("Tonnage by Number of \nLaws Previous Year") + 
+  xlab("Number of Laws Previous Year") + 
+  ylab("Total Tonnage") +
+  theme_bw()
+
+tonsvscumullaws <- ggplot(all_data, aes(cumul, total_tons)) +
+  geom_point() + 
+  ggtitle("Tonnage by Cumulative \nNumber of Laws") + 
+  xlab("Cumulative Number of Laws") + 
+  ylab("Total Tonnage") +
+  theme_bw()
+
+tonsvshhlaws <- ggplot(all_data, aes(household_n, total_tons)) +
+  geom_point() + 
+  ggtitle("Tonnage by Number of Household Laws") + 
+  xlab("Number of Household Laws") + 
+  ylab("Total Tonnage") +
+  theme_bw()
+
+tonsvsindlaws <- ggplot(all_data, aes(industry_n, total_tons)) +
+  geom_point() + 
+  ggtitle("Tonnage by Number of Industry Laws") + 
+  xlab("Number of Industry Laws") + 
+  ylab("Total Tonnage") +
+  theme_bw()
+
+(tonsvslaws + tonsvslaglaws + tonsvscumullaws)/(tonsvshhlaws + tonsvsindlaws)
+```
+
+```{r}
+placer <- c_data[c_data$County=='Placer',]
+madera <- c_data[c_data$County=='Madera',]
+la <- c_data[c_data$County=='Los Angeles',]
+```
+
+```{r, fig.width = 9, fig.height = 3}
+ggplacer <- ggplot(placer, aes(Year, total_tons)) +
+  geom_point() + 
+  ggtitle(paste0("Placer (pop. ", round(mean(placer$population)), ")"), subtitle="Tonnage by Year") + 
+  xlab("Year") + 
+  ylab("Tonnage") +
+  theme_bw()
+
+ggmad <- ggplot(madera, aes(Year, total_tons)) +
+  geom_point() + 
+  ggtitle(paste0("Madera (pop. ", round(mean(madera$population)), ")"), subtitle="Tonnage by Year") + 
+  xlab("Year") + 
+  ylab("Tonnage") +
+  theme_bw()
+
+ggla <- ggplot(la, aes(Year, total_tons)) +
+  geom_point() + 
+  ggtitle(paste0("Los Angeles (pop. ", round(mean(la$population)), ")"), subtitle="Tonnage by Year") + 
+  xlab("Year") + 
+  ylab("Tonnage") +
+  theme_bw()
+
+(ggplacer + ggmad + ggla)
+```
+
+```{r, fig.width = 9, fig.height = 3}
+ggperplacer <- ggplot(placer, aes(Year, total_tons/population)) +
+  geom_point() + 
+  ggtitle(paste0("Placer (pop. ", round(mean(placer$population)), ")"), subtitle="Tonnage Per Person by Year") + 
+  xlab("Year") + 
+  ylab("Tonnage Per Person") +
+  theme_bw()
+
+ggpermad <- ggplot(madera, aes(Year, total_tons/population)) +
+  geom_point() + 
+  ggtitle(paste0("Madera (pop. ", round(mean(madera$population)), ")"), subtitle="Tonnage Per Person by Year") + 
+  xlab("Year") + 
+  ylab("Tonnage Per Person") +
+  theme_bw()
+
+ggperla <- ggplot(la, aes(Year, total_tons/population)) +
+  geom_point() + 
+  ggtitle(paste0("Los Angeles (pop. ", round(mean(la$population)), ")"), subtitle="Tonnage Per Person by Year") + 
+  xlab("Year") + 
+  ylab("Tonnage Per Person") +
+  theme_bw()
+
+(ggperplacer + ggpermad + ggperla)
+```
+
+```{r, fig.width = 9, fig.height = 6}
+ggplacern <- ggplot(placer, aes(Year, total_tons/n)) +
+  geom_point() + 
+  ggtitle(paste0("Placer (pop. ", round(mean(placer$population)), ")"), subtitle="Tonnage Per Number of \nLaws by Year") + 
+  xlab("Year") + 
+  ylab("Tonnage Per # of Laws") +
+  theme_bw()
+
+ggplacercumul <- ggplot(placer, aes(Year, total_tons/cumul)) +
+  geom_point() + 
+  ggtitle(paste0("Placer (pop. ", round(mean(placer$population)), ")"), subtitle="Tonnage Per Cumulative # of \nLaws by Year") + 
+  xlab("Year") + 
+  ylab("Tonnage Per Cumulative # of Laws") +
+  theme_bw()
+
+ggmadn <- ggplot(madera, aes(Year, total_tons/n)) +
+  geom_point() + 
+  ggtitle(paste0("Madera (pop. ", round(mean(madera$population)), ")"), subtitle="Tonnage Per Number of \nLaws by Year") + 
+  xlab("Year") + 
+  ylab("Tonnage Per # of Laws") +
+  theme_bw()
+
+ggmadcumul <- ggplot(madera, aes(Year, total_tons/cumul)) +
+  geom_point() + 
+  ggtitle(paste0("Madera (pop. ", round(mean(madera$population)), ")"), subtitle="Tonnage Per Cumulative # of \nLaws by Year") + 
+  xlab("Year") + 
+  ylab("Tonnage Per Cumulative # of Laws") +
+  theme_bw()
+
+gglan <- ggplot(la, aes(Year, total_tons/n)) +
+  geom_point() + 
+  ggtitle(paste0("Los Angeles (pop. ", round(mean(la$population)), ")"), subtitle="Tonnage Per Number of \nLaws by Year") + 
+  xlab("Year") + 
+  ylab("Tonnage Per # of Laws") +
+  theme_bw()
+
+gglacumul <- ggplot(la, aes(Year, total_tons/cumul)) +
+  geom_point() + 
+  ggtitle(paste0("Los Angeles (pop. ", round(mean(la$population)), ")"), subtitle="Tonnage Per Cumulative # of \nLaws by Year") + 
+  xlab("Year") + 
+  ylab("Tonnage Per Cumulative # of Laws") +
+  theme_bw()
+
+(ggplacern + ggmadn + gglan)/ (ggplacercumul + ggmadcumul + gglacumul)
+```
+
+```{r, fig.width = 9, fig.height = 3}
+gggdpplacer <- ggplot(placer, aes(Year, GDP)) +
+  geom_point() + 
+  ggtitle(paste0("Placer (pop. ", round(mean(placer$population)), ")"), subtitle="GDP by Year") + 
+  xlab("Year") + 
+  ylab("GDP") +
+  theme_bw()
+
+gggdpmad <- ggplot(madera, aes(Year, GDP)) +
+  geom_point() + 
+  ggtitle(paste0("Madera (pop. ", round(mean(madera$population)), ")"), subtitle="GDP by Year") + 
+  xlab("Year") + 
+  ylab("GDP") +
+  theme_bw()
+
+gggdpla <- ggplot(la, aes(Year, GDP)) +
+  geom_point() + 
+  ggtitle(paste0("Los Angeles (pop. ", round(mean(la$population)), ")"), subtitle="GDP by Year") + 
+  xlab("Year") + 
+  ylab("GDP") +
+  theme_bw()
+
+(gggdpplacer + gggdpmad + gggdpla)
+```
+
+```{r, fig.width = 9, fig.height = 3}
+gggdpplacerton <- ggplot(placer, aes(Year, total_tons/GDP)) +
+  geom_point() + 
+  ggtitle(paste0("Placer (pop. ", round(mean(placer$population)), ")"), subtitle="Tonnage Per GDP $ by Year") + 
+  xlab("Year") + 
+  ylab("Tonnage Per GDP $") +
+  theme_bw()
+
+gggdpmadton <- ggplot(madera, aes(Year, total_tons/GDP)) +
+  geom_point() + 
+  ggtitle(paste0("Madera (pop. ", round(mean(madera$population)), ")"), subtitle="Tonnage Per GDP $ by Year") + 
+  xlab("Year") + 
+  ylab("Tonnage Per GDP $") +
+  theme_bw()
+
+gggdplaton <- ggplot(la, aes(Year, total_tons/GDP)) +
+  geom_point() + 
+  ggtitle(paste0("Los Angeles (pop. ", round(mean(la$population)), ")"), subtitle="Tonnage Per GDP $ by Year") + 
+  xlab("Year") + 
+  ylab("Tonnage Per GDP $") +
+  theme_bw()
+
+(gggdpplacerton + gggdpmadton + gggdplaton)
+```
+```{r}
+placer <- placer %>% select(-County)
+madera <- madera %>% select(-County)
+la <- la %>% select(-County)
+mod.placer <- lm(total_tons ~ .-Year, data=placer)
+mod.madera <- lm(total_tons ~ .-Year, data=madera)
+mod.la <- lm(total_tons ~ .-Year, data=la)
+
+summary(mod.placer)
+summary(mod.madera)
+summary(mod.la)
+```
+
+```{r, fig.width = 9, fig.height = 6}
+plotResiduals(mod.placer)
+```
